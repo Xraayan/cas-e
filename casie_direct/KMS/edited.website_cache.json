@@ -1,0 +1,255 @@
+{
+  "_meta": {
+    "source": "RIT Kottayam - ECE Department",
+    "last_updated": "2026-02-16",
+    "focus": "Electronics and Communication Engineering Department"
+  },
+  "college": {
+    "name": "Rajiv Gandhi Institute of Technology",
+    "short_name": "RIT",
+    "location": "Kottayam, Kerala",
+    "established": 1991,
+    "website": "https://www.rit.ac.in"
+  },
+  "principal": {
+    "name": "Dr. Prince A",
+    "email": "principal@rit.ac.in",
+    "phone": "+91 9400006409"
+  },
+  "contact": {
+    "address": "Velloor PO, Pampady, Kottayam - 686501, Kerala",
+    "office_phone": "0481 2507763",
+    "college_email": "info@rit.ac.in",
+    "ece_hod_email": "hod.ece@rit.ac.in"
+  },
+  "ece_department": {
+    "name": "Electronics and Communication Engineering",
+    "code": "ECE",
+    "website": "https://www.rit.ac.in/ece.php",
+    "vision": "To be a centre of excellence in electronics engineering education for the benefit of mankind.",
+    "mission": "Impart high quality professional education in Electronics through state-of-the-art facilities and teaching-learning process. Provide strong theoretical foundation to pursue higher education and research in Electronics and allied areas. Foster innovations in technology to provide solutions to the technological needs and challenges in the society.",
+    "hod": {
+        "name": "Dr. David Solomon George",
+        "designation": "Professor & Head",
+        "email": "david@rit.ac.in",
+        "phone": "09946449126"
+      },
+      "regular_faculty": [
+        {
+          "name": "Dona M Kottakkal",
+          "designation": "Instructor Grade I",
+          "discipline": "Applied Electronics",
+          "email": "donamaani@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/EC25G01-XMIO9.jpeg"
+        },
+        {
+          "name": "Dr. David Solomon George",
+          "designation": "Professor & Head",
+          "discipline": "ECE",
+          "email": "david@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/609533-HtUy0.jpeg"
+        },
+        {
+          "name": "Dr. Anilkumar C.D.",
+          "designation": "Professor",
+          "discipline": "Electronics and Communication Engineering",
+          "email": "cdanil@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-611273-J7zYn.jpg"
+        },
+        {
+          "name": "Sajeev G P",
+          "designation": "Associate Professor",
+          "discipline": "Computer Science & Engg",
+          "email": "gpsajeev@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-617164-hT61W.jpg"
+        },
+        {
+          "name": "Renu Jose",
+          "designation": "Professor",
+          "discipline": "Signal Processing for Communication",
+          "email": "renu.jose@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-607850-az7dm.jpg"
+        },
+        {
+          "name": "Nelsa Abraham",
+          "designation": "Associate Professor",
+          "discipline": "Engineering",
+          "email": "nelsaabraham@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/458069-e7Uml.jpg"
+        },
+        {
+          "name": "Rezuana Bai J",
+          "designation": "Professor",
+          "discipline": "Medical Instrumentation",
+          "email": "rezuanaj@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-699530-tdUbW.jpg"
+        },
+        {
+          "name": "Premson Y",
+          "designation": "Associate Professor",
+          "discipline": "Electronics/VLSI image processing",
+          "email": "ypremson@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-699538-pKLEC.jpg"
+        },
+        {
+          "name": "Neetha George",
+          "designation": "Professor",
+          "discipline": "Computer Vision",
+          "email": "neetha@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-609986-cgEAX.jpg"
+        },
+        {
+          "name": "Sujithamol S",
+          "designation": "Associate Professor",
+          "discipline": "Microelectronics & VLSI",
+          "email": "sujithamol@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-604797-6VZyt.jpg"
+        },
+        {
+          "name": "Anish Babu K K",
+          "designation": "Associate Professor",
+          "discipline": "ECE",
+          "email": "anish.babu@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/421367-vC9r2.jpg"
+        },
+        {
+          "name": "Nimmy George",
+          "designation": "Associate Professor",
+          "discipline": "Applied Electronics and Instrumentation",
+          "email": "nimmygeorge@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-613762-e1Qx4.png"
+        },
+        {
+          "name": "Dr. Ebin M. Manuel",
+          "designation": "Associate Professor",
+          "discipline": "ECE",
+          "email": "ebin@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-669685-TbhzH.jpg"
+        },
+        {
+          "name": "Anu George",
+          "designation": "Associate Professor",
+          "email": "anugracesunil@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-600607-UrOtN.jpeg"
+        },
+        {
+          "name": "Shinoj K Sukumaran",
+          "designation": "Associate Professor",
+          "discipline": "Electronics",
+          "email": "shinojsukumaran@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/600603-gGcpO.jpg"
+        },
+        {
+          "name": "Annie George",
+          "designation": "Assistant Professor",
+          "discipline": "Microwave and TV Engg",
+          "email": "anniegeoann@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-712971-Dhvos.jpeg"
+        },
+        {
+          "name": "Dr. Michael George",
+          "designation": "Assistant Professor",
+          "discipline": "Image/Video Analysis",
+          "email": "michaelgeorge@rit.ac.in",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-868356-FJxlg.jpg"
+        },
+        {
+          "name": "Amal S Kannan",
+          "designation": "Assistant Professor",
+          "discipline": "Electronics and Communication",
+          "email": "amalskannan@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-827948-Sk93Q.jpg"
+        },
+        {
+          "name": "Sobin Francis",
+          "designation": "Assistant Professor",
+          "discipline": "ECE",
+          "email": "sobinfrancis@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/928979-m9J58.jpeg"
+        },
+        {
+          "name": "Shafeek Basheer",
+          "designation": "Assistant Professor (Adhoc)",
+          "discipline": "VLSI and Embedded Systems",
+          "email": "shfkbasheer@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/EC24G01-CmSDs.jpg"
+        },
+        {
+          "name": "Raseena Yousuf",
+          "designation": "Assistant Professor (Adhoc)",
+          "discipline": "Electronics and Communication",
+          "email": "raseen.yousuf@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-EC24G03-3IpyW.png"
+        },
+        {
+          "name": "Revathy Nagesh",
+          "designation": "Assistant Professor (Adhoc)",
+          "discipline": "Optoelectronics and Communication Systems",
+          "email": "revathy.nagesh@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-EC24G04-yahn1.jpeg"
+        }
+      ],
+      "support_staff": [
+        {
+          "name": "Sandeepkumar N",
+          "designation": "Instructor Grade II",
+          "email": "sandeepchirakkadavu@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-404208-JPgC7.jpeg"
+        },
+        {
+          "name": "Mujeeb P I",
+          "designation": "Trade Instructor SG",
+          "email": "mujeebpi129@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/388297-oIrBe.jpg"
+        },
+        {
+          "name": "Deleep P",
+          "designation": "Trade Instructor Grade I",
+          "email": "deleepmanickanal@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/397044-oN5yi.jpeg"
+        },
+        {
+          "name": "Sumeshkumar A",
+          "designation": "Trade Instructor Grade I",
+          "email": "sumeshtvm76@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-404128-B2JRM.jpeg"
+        },
+        {
+          "name": "Shiji M K",
+          "designation": "Trade Instructor",
+          "email": "shijimk6@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-630259-XjHar.jpg"
+        },
+        {
+          "name": "Soy Francis",
+          "designation": "Trade Instructor",
+          "email": "soyvaliyakunnel@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-409835-grOnu.jpeg"
+        },
+        {
+          "name": "Anjali Anand",
+          "designation": "Trade Instructor",
+          "email": "anjalisanal12idukki@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-729792-JlvZh.jpeg"
+        },
+        {
+          "name": "Bijumon P T",
+          "designation": "Trade Instructor Grade II",
+          "email": "lijumon3100@gmail.com",
+          "photo": "https://rit.etlab.in/uploads/images/staff/U-663776-eMgru.jpg"
+        }
+      ],
+      "programs": {
+        "educational_objectives": [
+          "Apply theoretical and practical knowledge in Electronics, Communication, and emerging areas such as AI, IoT, and intelligent systems to solve engineering problems.",
+          "Pursue higher education, research, or professional advancement in engineering or management fields with adaptability to technological evolution.",
+          "Demonstrate leadership, professionalism, and teamwork in multidisciplinary environments for national and global development."
+        ],
+        "specific_outcomes": [
+          "Demonstrate analytical, problem-solving, and design skills in analog/digital circuits, communication systems, signal processing, VLSI, and embedded systems.",
+          "Adapt to evolving hardware and software tools, platforms, and technologies in electronics and communication industries.",
+          "Apply engineering knowledge and innovative thinking to pursue research or establish technology-driven entrepreneurial ventures."
+        ]
+      }
+    }
+  }

@@ -1,0 +1,91 @@
+[
+  {
+    "question": "How many students are there in EC department?",
+    "answer": "There are 480 students in the Electronics and Communication Engineering Department."
+  },
+  {
+    "question": "What type of building is this?",
+    "answer": "The Electronics and Communication Engineering department is located in the Academic Block."
+  },
+  {
+    "question": "How many floors are there in the EC department building?",
+    "answer": "The department has Ground Floor, First Floor, Second Floor, and Third Floor."
+  },
+  {
+    "question": "Where is Digital Lab?",
+    "answer": "Digital Lab is in Room 101 on the Ground Floor."
+  },
+  {
+    "question": "Where is Circuits Lab?",
+    "answer": "Circuits Lab is in Room 102 on the Ground Floor."
+  },
+  {
+    "question": "Where is Communication Lab?",
+    "answer": "Communication Lab is in Room 103 on the Ground Floor."
+  },
+  {
+    "question": "Where is Maintenance Cell?",
+    "answer": "Maintenance Cell is in Room 104 on the Ground Floor."
+  },
+  {
+    "question": "Where is Electronics Workshop?",
+    "answer": "Electronics Workshop is in Room 201 on the First Floor."
+  },
+  {
+    "question": "Where is Lecture Hall 1?",
+    "answer": "Lecture Hall 1 is in Room 202 on the First Floor."
+  },
+  {
+    "question": "Where is Professors Room?",
+    "answer": "Professors Room / Dean Research is in Room 203 on the First Floor."
+  },
+  {
+    "question": "Where is Systems Lab?",
+    "answer": "Systems Lab is in Room 205 on the First Floor."
+  },
+  {
+    "question": "Where is Library?",
+    "answer": "Library is in Room 207 on the First Floor."
+  },
+  {
+    "question": "Where is Computer Lab?",
+    "answer": "Computer Lab is in Room 208 on the First Floor."
+  },
+  {
+    "question": "Where is HOD cabin?",
+    "answer": "The Head of the Department cabin is in Room 209 on the First Floor."
+  },
+  {
+    "question": "Where is Staff Room 1?",
+    "answer": "Staff Room 1 is in Room 210 on the First Floor."
+  },
+  {
+    "question": "Where is Seminar Hall?",
+    "answer": "Seminar Hall is in Room 307 on the Second Floor."
+  },
+  {
+    "question": "Where is Project Lab?",
+    "answer": "Project Lab is in Room 308 on the Second Floor."
+  },
+  {
+    "question": "Where is Robotics Lab?",
+    "answer": "Robotics Lab is in Room 309 on the Second Floor."
+  },
+  {
+    "question": "Where is PG Lab?",
+    "answer": "PG Lab is in Room 310 on the Second Floor."
+  },
+  {
+    "question": "Where is CASP Lab?",
+    "answer": "CASP Lab is in Room 401 on the Third Floor."
+  },
+  {
+    "question": "Who is final year EC project coordinator?",
+    "answer": "The final year EC project coordinators are Professor. Rezuana Bai J. and Professor. Anu George."
+  },
+  {
+    "question": "Who is final year Robotics and AI project coordinator?",
+    "answer": "The final year RAI project coordinators are Dr. Anilkumar C.D and Dr. Renu Jose."
+  }
+]
+
