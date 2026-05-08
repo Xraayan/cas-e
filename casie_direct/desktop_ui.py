@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import ctypes
 import math
 import os
 import queue
@@ -15,8 +16,15 @@ import sounddevice as sd
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+try:
+    from PIL import Image, ImageOps, ImageTk
+except ImportError:
+    Image = None
+    ImageOps = None
+    ImageTk = None
 
 import agent as core
+from tools import TIMETABLE_DISPLAY_MS, TIMETABLE_IMAGE_PATH
 from tool_compat import RunContext
 
 
@@ -40,6 +48,8 @@ UI_LEVEL_EMIT_MS = int(os.getenv("CASIE_UI_LEVEL_EMIT_MS", "70"))
 UI_VIZ_BARS = int(os.getenv("CASIE_UI_VIZ_BARS", "34"))
 UI_VIZ_FPS_MS = int(os.getenv("CASIE_UI_VIZ_FPS_MS", "50"))
 UI_EVENT_POLL_MS = int(os.getenv("CASIE_UI_EVENT_POLL_MS", "16"))
+UI_TIMETABLE_SELF_TEST = os.getenv("CASIE_TIMETABLE_SELF_TEST", "false").strip().lower() in {"1", "true", "yes", "on"}
+UI_TIMETABLE_MARGIN_PX = int(os.getenv("CASIE_TIMETABLE_MARGIN_PX", "24"))
 
 
 class AutoSleepRequested(Exception):
@@ -641,7 +651,7 @@ class CasieDesktopApp(tk.Tk):
         self.geometry("880x610")
         self.minsize(680, 460)
         self.configure(bg="#030303")
-        self._linux_fullscreen = sys.platform.startswith("linux")
+        self._is_linux = sys.platform.startswith("linux")
 
         self._events = queue.Queue()
         self._worker = None
@@ -673,6 +683,8 @@ class CasieDesktopApp(tk.Tk):
         self._timetable_window = None
         self._timetable_photo = None
         self._timetable_close_job = None
+        self._timetable_canvas_active = False
+        self._timetable_error_text = ""
 
         self._build_layout()
         self._set_status("Ready", "idle")
@@ -680,9 +692,12 @@ class CasieDesktopApp(tk.Tk):
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<Escape>", lambda _event: self._on_close())
-        self.after_idle(self._apply_fullscreen)
-        self.after(250, self._apply_fullscreen)
-        self.after(1000, self._apply_fullscreen)
+        self.bind("<F8>", lambda _event: self._show_timetable(str(TIMETABLE_IMAGE_PATH), TIMETABLE_DISPLAY_MS))
+        self.after_idle(self._finish_fullscreen_layout)
+        self.after(250, self._finish_fullscreen_layout)
+        self.after(1000, self._finish_fullscreen_layout)
+        if UI_TIMETABLE_SELF_TEST:
+            self.after(2500, lambda: self._show_timetable(str(TIMETABLE_IMAGE_PATH), TIMETABLE_DISPLAY_MS))
         self.after(40, self._drain_events)
 
     def _new_worker(self) -> LiveUiWorker:
@@ -690,23 +705,37 @@ class CasieDesktopApp(tk.Tk):
         self._next_worker_id += 1
         return worker
 
+    def _screen_size(self) -> tuple[int, int]:
+        return max(1, self.winfo_screenwidth()), max(1, self.winfo_screenheight())
+
     def _apply_fullscreen(self) -> None:
-        screen_w = max(1, self.winfo_screenwidth())
-        screen_h = max(1, self.winfo_screenheight())
+        """Enable fullscreen with platform-specific window management."""
+        screen_w, screen_h = self._screen_size()
 
-        if self._linux_fullscreen:
-            with contextlib.suppress(tk.TclError):
-                self.overrideredirect(True)
-
+        with contextlib.suppress(tk.TclError):
+            self.overrideredirect(self._is_linux)
         with contextlib.suppress(tk.TclError):
             self.attributes("-fullscreen", True)
-        with contextlib.suppress(tk.TclError):
-            self.state("zoomed")
+        if self._is_linux:
+            with contextlib.suppress(tk.TclError):
+                self.geometry(f"{screen_w}x{screen_h}+0+0")
+        else:
+            with contextlib.suppress(tk.TclError):
+                self.attributes("-topmost", True)
+                self.state("zoomed")
 
-        self.geometry(f"{screen_w}x{screen_h}+0+0")
         with contextlib.suppress(tk.TclError):
             self.lift()
             self.focus_force()
+
+        self._canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+    def _finish_fullscreen_layout(self) -> None:
+        """Retry fullscreen after the window manager settles and redraw to the live size."""
+        self._apply_fullscreen()
+        self.update_idletasks()
+        self._canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self._draw_visualizer()
 
     def _build_layout(self) -> None:
         self._canvas = tk.Canvas(
@@ -809,6 +838,10 @@ class CasieDesktopApp(tk.Tk):
         self._canvas.delete("viz")
         canvas_w = max(1, self._canvas.winfo_width())
         canvas_h = max(1, self._canvas.winfo_height())
+        if self._timetable_canvas_active:
+            self._draw_timetable_canvas_overlay(canvas_w, canvas_h)
+            return
+
         cx = canvas_w / 2.0
         cy = canvas_h / 2.0 + 8
         min_side = float(min(canvas_w, canvas_h))
@@ -893,6 +926,62 @@ class CasieDesktopApp(tk.Tk):
 
         self._place_transcript_widgets(canvas_w, canvas_h)
         self._canvas.tag_lower("viz")
+        if self._timetable_window is not None:
+            self._bring_timetable_to_front(self._timetable_window)
+
+    def _hide_main_widgets(self) -> None:
+        for widget in (self._left_text, self._right_text, self.end_button, self.close_button):
+            with contextlib.suppress(tk.TclError):
+                widget.place_forget()
+
+    def _draw_timetable_canvas_overlay(self, canvas_w: int | None = None, canvas_h: int | None = None) -> None:
+        if not self._timetable_canvas_active:
+            return
+
+        with contextlib.suppress(tk.TclError):
+            self._canvas.lift()
+        canvas_w = max(1, int(canvas_w or self._canvas.winfo_width() or self.winfo_screenwidth()))
+        canvas_h = max(1, int(canvas_h or self._canvas.winfo_height() or self.winfo_screenheight()))
+        cx = canvas_w / 2
+        cy = canvas_h / 2
+        pad = max(4, min(UI_TIMETABLE_MARGIN_PX // 2, 16))
+
+        self._hide_main_widgets()
+        self._canvas.delete("timetable")
+        self._canvas.create_rectangle(0, 0, canvas_w, canvas_h, fill="#030303", outline="", tags=("timetable",))
+        if not self._timetable_photo:
+            self._canvas.create_text(
+                cx,
+                cy,
+                text=self._timetable_error_text or "Timetable could not be displayed.",
+                fill="#fff2d6",
+                font=self._status_font,
+                anchor="center",
+                width=max(260, int(canvas_w * 0.8)),
+                tags=("timetable",),
+            )
+            self._canvas.tag_raise("timetable")
+            return
+
+        _original_photo, display_photo = self._timetable_photo
+        image_w = max(1, display_photo.width())
+        image_h = max(1, display_photo.height())
+        left = max(0, cx - (image_w / 2) - pad)
+        top = max(0, cy - (image_h / 2) - pad)
+        right = min(canvas_w, cx + (image_w / 2) + pad)
+        bottom = min(canvas_h, cy + (image_h / 2) + pad)
+        self._canvas.create_rectangle(
+            left,
+            top,
+            right,
+            bottom,
+            fill="#050505",
+            outline="#f6d77a",
+            width=3,
+            tags=("timetable",),
+        )
+        self._canvas.create_image(cx, cy, image=display_photo, anchor="center", tags=("timetable",))
+        self._canvas.tag_raise("timetable")
 
     def _place_transcript_widgets(self, canvas_w: int, canvas_h: int) -> None:
         top = 150
@@ -905,6 +994,11 @@ class CasieDesktopApp(tk.Tk):
 
         self._left_text.place(x=outer_pad, y=top, width=lane_width, height=lane_height)
         self._right_text.place(x=right_x, y=top, width=lane_width, height=lane_height)
+        with contextlib.suppress(tk.TclError):
+            self._left_text.lift()
+            self._right_text.lift()
+            self.end_button.lift()
+            self.close_button.lift()
 
     def _message_style(self, role: str, canvas_w: int) -> dict[str, object]:
         side = 24
@@ -987,33 +1081,115 @@ class CasieDesktopApp(tk.Tk):
                 self.after_cancel(self._timetable_close_job)
             self._timetable_close_job = None
 
+        if self._timetable_canvas_active:
+            self._timetable_canvas_active = False
+            with contextlib.suppress(tk.TclError):
+                self._canvas.delete("timetable")
+
         if self._timetable_window is not None:
             with contextlib.suppress(Exception):
                 self._timetable_window.destroy()
             self._timetable_window = None
         self._timetable_photo = None
+        self._timetable_error_text = ""
+        self._request_redraw()
 
-    def _show_timetable(self, image_path: str, duration_ms: int = 8000) -> None:
-        if not image_path or not os.path.exists(image_path):
-            self._append_system_line("Timetable image not found.")
-            return
-
-        self._close_timetable()
+    def _bring_timetable_to_front(self, window: tk.Misc) -> None:
         try:
-            original_photo = tk.PhotoImage(file=image_path)
-        except tk.TclError as exc:
-            self._append_system_line(f"Could not load timetable image: {exc}")
+            exists = window.winfo_exists()
+        except tk.TclError:
+            return
+        if not exists:
             return
 
-        screen_w = max(1, self.winfo_screenwidth())
-        screen_h = max(1, self.winfo_screenheight())
-        max_w = max(320, int(screen_w * 0.9))
-        max_h = max(240, int(screen_h * 0.85))
+        with contextlib.suppress(Exception):
+            window.deiconify()
+        with contextlib.suppress(Exception):
+            window.attributes("-topmost", True)
+        with contextlib.suppress(tk.TclError):
+            window.lift()
+            window.focus_force()
+
+        if sys.platform.startswith("win"):
+            hwnd = window.winfo_id()
+            user32 = ctypes.windll.user32
+            sw_shownormal = 1
+            hwnd_topmost = -1
+            swp_nosize = 0x0001
+            swp_nomove = 0x0002
+            swp_showwindow = 0x0040
+            with contextlib.suppress(Exception):
+                user32.ShowWindow(hwnd, sw_shownormal)
+                user32.SetWindowPos(
+                    hwnd,
+                    hwnd_topmost,
+                    0,
+                    0,
+                    0,
+                    0,
+                    swp_nomove | swp_nosize | swp_showwindow,
+                )
+                user32.SetForegroundWindow(hwnd)
+
+    def _load_timetable_photo(self, image_path: str, max_w: int, max_h: int):
+        max_w = max(1, int(max_w))
+        max_h = max(1, int(max_h))
+        if Image is not None and ImageOps is not None and ImageTk is not None:
+            with Image.open(image_path) as image:
+                image = ImageOps.exif_transpose(image)
+                image = image.convert("RGBA")
+                image.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
+                return ImageTk.PhotoImage(image)
+
+        original_photo = tk.PhotoImage(file=image_path)
         shrink = max(
             1,
             math.ceil(max(original_photo.width() / max_w, original_photo.height() / max_h)),
         )
-        display_photo = original_photo.subsample(shrink, shrink) if shrink > 1 else original_photo
+        if shrink > 1:
+            return original_photo.subsample(shrink, shrink)
+        return original_photo
+
+    def _show_timetable_error(self, text: str, duration_ms: int) -> None:
+        self._timetable_canvas_active = True
+        self._timetable_photo = None
+        self._timetable_error_text = text
+        self._draw_timetable_canvas_overlay()
+        self.update_idletasks()
+        self._timetable_close_job = self.after(max(1000, int(duration_ms or 8000)), self._close_timetable)
+
+    def _show_timetable(self, image_path: str, duration_ms: int = 8000) -> None:
+        if not image_path or not os.path.exists(image_path):
+            self._append_system_line("Timetable image not found.")
+            print(f"Timetable image not found: {image_path}", flush=True)
+            return
+
+        self._close_timetable()
+        self.update_idletasks()
+        canvas_w = max(1, self._canvas.winfo_width(), self.winfo_width())
+        canvas_h = max(1, self._canvas.winfo_height(), self.winfo_height())
+        margin = max(0, UI_TIMETABLE_MARGIN_PX)
+        max_w = max(1, int(canvas_w - (margin * 2)))
+        max_h = max(1, int(canvas_h - (margin * 2)))
+        try:
+            display_photo = self._load_timetable_photo(image_path, max_w, max_h)
+        except Exception as exc:
+            self._show_timetable_error(f"Could not load timetable image: {exc}", duration_ms)
+            print(f"Could not load timetable image {image_path}: {exc}", flush=True)
+            return
+
+        if self._is_linux:
+            self._timetable_canvas_active = True
+            self._timetable_photo = (display_photo, display_photo)
+            self._draw_timetable_canvas_overlay(canvas_w, canvas_h)
+            self.update_idletasks()
+            print(
+                f"Showing timetable canvas overlay: {image_path} "
+                f"canvas={canvas_w}x{canvas_h} image={display_photo.width()}x{display_photo.height()}",
+                flush=True,
+            )
+            self._timetable_close_job = self.after(max(1000, int(duration_ms or 8000)), self._close_timetable)
+            return
 
         window = tk.Toplevel(self)
         window.title("Class Timetable")
@@ -1027,12 +1203,17 @@ class CasieDesktopApp(tk.Tk):
         window.protocol("WM_DELETE_WINDOW", self._close_timetable)
         window.update_idletasks()
 
+        screen_w = max(1, self.winfo_screenwidth())
+        screen_h = max(1, self.winfo_screenheight())
         x = max(0, int((screen_w - window.winfo_width()) / 2))
         y = max(0, int((screen_h - window.winfo_height()) / 2))
         window.geometry(f"+{x}+{y}")
 
         self._timetable_window = window
-        self._timetable_photo = (original_photo, display_photo)
+        self._timetable_photo = (display_photo, display_photo)
+        self._bring_timetable_to_front(window)
+        window.after(80, lambda: self._bring_timetable_to_front(window))
+        window.after(300, lambda: self._bring_timetable_to_front(window))
         self._timetable_close_job = self.after(max(1000, int(duration_ms or 8000)), self._close_timetable)
 
     def _set_status(self, text: str, level: str) -> None:
@@ -1201,7 +1382,13 @@ class CasieDesktopApp(tk.Tk):
             event_type = event.get("type")
             worker_id = int(event.get("worker_id", 0) or 0)
             if worker_id and worker_id != self._active_worker_id:
-                continue
+                if event_type != "show_timetable":
+                    continue
+                print(
+                    "Processing show_timetable from non-active worker "
+                    f"{worker_id}; active worker is {self._active_worker_id}",
+                    flush=True,
+                )
             if event_type == "status":
                 level = event.get("level", "info")
                 self._set_status(event.get("text", "Status update"), level)
@@ -1217,10 +1404,14 @@ class CasieDesktopApp(tk.Tk):
                 self._viz_target_mic = max(0.0, min(1.0, float(event.get("mic", 0.0) or 0.0)))
                 self._viz_target_out = max(0.0, min(1.0, float(event.get("out", 0.0) or 0.0)))
             elif event_type == "show_timetable":
-                    self._show_timetable(
-                        str(event.get("image_path", "") or ""),
-                        int(event.get("duration_ms", 8000) or 8000),
-                    )
+                print(
+                    f"Received show_timetable event: {event.get('image_path', '')}",
+                    flush=True,
+                )
+                self._show_timetable(
+                    str(event.get("image_path", "") or ""),
+                    int(event.get("duration_ms", 8000) or 8000),
+                )
             elif event_type == "error":
                 text = event.get("text", "Unknown error")
                 self._set_status(text, "error")

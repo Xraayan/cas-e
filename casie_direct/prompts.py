@@ -32,7 +32,7 @@ USE query_ec_faq TOOL for:
 USE show_timetable TOOL when:
 - User asks to see the timetable, class schedule, or time table
 - User says "show timetable", "show schedule", "what's my timetable", etc.
-- The tool displays KMS/timetable.png on screen for 8 seconds
+- The tool displays the KMS timetable image on screen
 - ALWAYS call this tool for timetable requests — do NOT just describe it verbally
 
 # Communication Style
