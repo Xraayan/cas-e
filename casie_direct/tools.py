@@ -12,7 +12,16 @@ from ec_faq import answer_ec_faq
 from knowledge_store import answer_faq
 from website_context import search_context
 
-TIMETABLE_IMAGE_PATH = Path(__file__).resolve().parent / "KMS" / "timetable.png"
+_KMS_DIR = Path(__file__).resolve().parent / "KMS"
+_TIMETABLE_IMAGE_CANDIDATES = (
+    _KMS_DIR / "timetable.jpg",
+    _KMS_DIR / "timetable.jpeg",
+    _KMS_DIR / "timetable.png",
+)
+TIMETABLE_IMAGE_PATH = next(
+    (path for path in _TIMETABLE_IMAGE_CANDIDATES if path.exists()),
+    _TIMETABLE_IMAGE_CANDIDATES[0],
+)
 TIMETABLE_DISPLAY_MS = 8000
 
 _FAQ_HINTS = (
@@ -35,6 +44,7 @@ def _normalize_query(query: str) -> str:
 def _emit_ui_event(context: RunContext, event_type: str, **payload) -> bool:
     event_sink = context.metadata.get("event_sink")
     if not callable(event_sink):
+        logging.warning("UI event %s not emitted: no callable event_sink in context metadata", event_type)
         return False
 
     event = {
@@ -43,6 +53,8 @@ def _emit_ui_event(context: RunContext, event_type: str, **payload) -> bool:
         **payload,
     }
     event_sink(event)
+    logging.info("UI event emitted: %s worker_id=%s payload=%s", event_type, event["worker_id"], payload)
+    print(f"UI event emitted: {event_type} worker_id={event['worker_id']}", flush=True)
     return True
 
 
@@ -123,7 +135,7 @@ async def show_timetable(
     context: RunContext,  # type: ignore[valid-type]
 ) -> str:
     """
-    Display KMS/timetable.png on the user's screen for 8 seconds.
+    Display the KMS timetable image on the user's screen for 8 seconds.
     Call this tool whenever the user asks to see the timetable, time table,
     or class schedule.
     """

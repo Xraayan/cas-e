@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_DIR="${CASIE_PROJECT_DIR:-$HOME/Desktop/cas-e}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="${CASIE_PROJECT_DIR:-$SCRIPT_DIR}"
 APP_DIR="$PROJECT_DIR/casie_direct"
 LOG_DIR="$PROJECT_DIR/logs"
 LOG_FILE="$LOG_DIR/casie_desktop.log"
