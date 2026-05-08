@@ -3,6 +3,7 @@ import asyncio
 import logging
 import time
 from functools import lru_cache
+from pathlib import Path
 
 from ddgs import DDGS
 from tool_compat import RunContext, function_tool
@@ -10,6 +11,9 @@ from tool_compat import RunContext, function_tool
 from ec_faq import answer_ec_faq
 from knowledge_store import answer_faq
 from website_context import search_context
+
+TIMETABLE_IMAGE_PATH = Path(__file__).resolve().parent / "KMS" / "timetable.png"
+TIMETABLE_DISPLAY_MS = 8000
 
 _FAQ_HINTS = (
     "where",
@@ -26,6 +30,20 @@ _FAQ_HINTS = (
 
 def _normalize_query(query: str) -> str:
     return " ".join(query.strip().split())
+
+
+def _emit_ui_event(context: RunContext, event_type: str, **payload) -> bool:
+    event_sink = context.metadata.get("event_sink")
+    if not callable(event_sink):
+        return False
+
+    event = {
+        "type": event_type,
+        "worker_id": int(context.metadata.get("worker_id", 0) or 0),
+        **payload,
+    }
+    event_sink(event)
+    return True
 
 
 @lru_cache(maxsize=512)
@@ -105,12 +123,24 @@ async def show_timetable(
     context: RunContext,  # type: ignore[valid-type]
 ) -> str:
     """
-    Display the class timetable image on the user's screen.
-    Call this tool whenever the user asks to see the timetable or their schedule.
+    Display KMS/timetable.png on the user's screen for 8 seconds.
+    Call this tool whenever the user asks to see the timetable, time table,
+    or class schedule.
     """
-    # Keep the spoken reply natural while including the trigger word
-    # that the frontend Timetable component listens for.
-    return "I'm displaying your class timetable on the screen right now."
+    if not TIMETABLE_IMAGE_PATH.exists():
+        logging.error("Timetable image not found: %s", TIMETABLE_IMAGE_PATH)
+        return "I couldn't find the timetable image right now."
+
+    shown = _emit_ui_event(
+        context,
+        "show_timetable",
+        image_path=str(TIMETABLE_IMAGE_PATH),
+        duration_ms=TIMETABLE_DISPLAY_MS,
+    )
+    if shown:
+        return "I'm showing your class timetable for 8 seconds."
+
+    return f"The class timetable image is available at {TIMETABLE_IMAGE_PATH}."
 
 
 @function_tool()

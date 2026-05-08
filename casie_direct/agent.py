@@ -99,6 +99,7 @@ PI_COMPAT_ENABLED = os.getenv("CASIE_PI_COMPAT_ENABLED", "false").strip().lower(
 INPUT_LATENCY = os.getenv("CASIE_INPUT_LATENCY", "low")
 OUTPUT_LATENCY = os.getenv("CASIE_OUTPUT_LATENCY", "low")
 PI_STABILIZE_MS = int(os.getenv("CASIE_PI_STABILIZE_MS", "12"))
+COMMON_AUDIO_RATES = (48000, 44100, 32000, 24000, 22050, 16000)
 
 
 def _start_sensitivity(value: str) -> types.StartSensitivity:
@@ -324,6 +325,20 @@ async def _send_text_turn(session, text: str) -> None:
     await session.send_realtime_input(text=clean)
 
 
+async def _send_startup_greeting(session) -> None:
+    clean = GREETING_TEXT.strip()
+    if not clean:
+        return
+
+    await _send_text_turn(
+        session,
+        (
+            "Say only this opening welcome line now, then wait for the visitor's "
+            f'first question: "{clean}"'
+        ),
+    )
+
+
 def _build_config(tool_registry: ToolRegistry) -> types.LiveConnectConfig:
     start_mode = os.getenv("CASIE_SERVER_START_SENSITIVITY", "high")
     end_mode = os.getenv("CASIE_SERVER_END_SENSITIVITY", "high")
@@ -524,6 +539,49 @@ def _restart_output_stream(
     return new_stream
 
 
+def _device_default_rate(device_idx: int | None, io_kind: str) -> int | None:
+    dev = _safe_query_device(device_idx, io_kind)
+    if not dev:
+        return None
+    try:
+        rate = int(round(float(dev.get("default_samplerate", 0.0))))
+    except Exception:
+        return None
+    return rate if rate > 0 else None
+
+
+def _choose_stream_rate(device_idx: int | None, io_kind: str, preferred_rate: int) -> int:
+    if device_idx is not None and _device_supports_rate(device_idx, io_kind, preferred_rate):
+        return preferred_rate
+
+    default_rate = _device_default_rate(device_idx, io_kind)
+    if default_rate and (device_idx is None or _device_supports_rate(device_idx, io_kind, default_rate)):
+        return default_rate
+
+    for rate in COMMON_AUDIO_RATES:
+        if device_idx is None or _device_supports_rate(device_idx, io_kind, rate):
+            return rate
+
+    return preferred_rate
+
+
+def _resample_float32(samples: np.ndarray, src_rate: int, dst_rate: int) -> np.ndarray:
+    if src_rate == dst_rate or samples.size == 0:
+        return samples.astype(np.float32, copy=False)
+
+    flat = samples.astype(np.float32, copy=False).reshape(-1)
+    src_len = flat.shape[0]
+    dst_len = max(1, int(round(src_len * (float(dst_rate) / float(src_rate)))))
+    src_pos = np.linspace(0.0, src_len - 1, num=src_len, dtype=np.float32)
+    dst_pos = np.linspace(0.0, src_len - 1, num=dst_len, dtype=np.float32)
+    return np.interp(dst_pos, src_pos, flat).astype(np.float32)
+
+
+def _pcm16_bytes_from_float32(samples: np.ndarray) -> bytes:
+    clipped = np.clip(samples.reshape(-1), -1.0, 1.0)
+    return (clipped * 32767.0).astype(np.int16).tobytes()
+
+
 def _resolve_device(device_hint: str, io_kind: str, preferred_rate: int | None = None) -> int | None:
     if not device_hint:
         return _first_device_with_channels(io_kind, preferred_rate)
@@ -592,6 +650,8 @@ async def _run_session(client: genai.Client) -> None:
     assistant_block_until_ts = 0.0
     input_device = _resolve_device(INPUT_DEVICE_HINT, "input", SAMPLE_RATE)
     output_device = _resolve_device(OUTPUT_DEVICE_HINT, "output", OUTPUT_RATE)
+    input_stream_rate = _choose_stream_rate(input_device, "input", SAMPLE_RATE)
+    output_stream_rate = _choose_stream_rate(output_device, "output", OUTPUT_RATE)
     input_stream_kwargs = _stream_kwargs("input")
     output_stream_kwargs = _stream_kwargs("output")
     run_context = RunContext(session_id="live-session")
@@ -606,7 +666,7 @@ async def _run_session(client: genai.Client) -> None:
         )
 
         if STARTUP_GREETING_ENABLED:
-            await _send_text_turn(session, GREETING_TEXT)
+            await _send_startup_greeting(session)
 
         loop = asyncio.get_running_loop()
         mic_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=32)
@@ -616,7 +676,10 @@ async def _run_session(client: genai.Client) -> None:
             del frames, time_info
             if status:
                 logger.debug("Mic status: %s", status)
-            pcm = (np.clip(indata[:, 0], -1.0, 1.0) * 32767).astype(np.int16).tobytes()
+            mono = np.asarray(indata[:, 0], dtype=np.float32)
+            if input_stream_rate != SAMPLE_RATE:
+                mono = _resample_float32(mono, input_stream_rate, SAMPLE_RATE)
+            pcm = _pcm16_bytes_from_float32(mono)
 
             def _push() -> None:
                 if mic_queue.full():
@@ -629,9 +692,9 @@ async def _run_session(client: genai.Client) -> None:
             loop.call_soon_threadsafe(_push)
 
         async def listen_audio() -> None:
-            blocksize = int(SAMPLE_RATE * (INPUT_BLOCK_MS / 1000.0))
+            blocksize = int(input_stream_rate * (INPUT_BLOCK_MS / 1000.0))
             with sd.InputStream(
-                samplerate=SAMPLE_RATE,
+                samplerate=input_stream_rate,
                 channels=1,
                 dtype="float32",
                 blocksize=max(1, blocksize),
@@ -642,12 +705,13 @@ async def _run_session(client: genai.Client) -> None:
                 try:
                     dev = _safe_query_device(input_device, "input")
                     logger.info(
-                        "Microphone open (rate=%d, device=%s)",
+                        "Microphone open (device_rate=%d, api_rate=%d, device=%s)",
+                        input_stream_rate,
                         SAMPLE_RATE,
                         dev.get("name", "default") if dev else "default",
                     )
                 except Exception:
-                    logger.info("Microphone open (rate=%d, device=default)", SAMPLE_RATE)
+                    logger.info("Microphone open (device_rate=%d, api_rate=%d, device=default)", input_stream_rate, SAMPLE_RATE)
                 if PI_COMPAT_ENABLED and IS_RASPBERRY_PI and PI_STABILIZE_MS > 0:
                     await asyncio.sleep(PI_STABILIZE_MS / 1000.0)
                 while not stop_event.is_set():
@@ -902,39 +966,28 @@ async def _run_session(client: genai.Client) -> None:
         async def play_audio() -> None:
             nonlocal assistant_block_until_ts
             output_stream = sd.OutputStream(
-                samplerate=OUTPUT_RATE,
+                samplerate=output_stream_rate,
                 channels=1,
                 dtype="float32",
                 device=output_device,
                 **output_stream_kwargs,
             )
             output_stream.start()
-            current_rate = OUTPUT_RATE
             try:
                 dev = _safe_query_device(output_device, "output")
                 logger.info(
-                    "Speaker open (rate=%d, device=%s)",
+                    "Speaker open (device_rate=%d, api_rate=%d, device=%s)",
+                    output_stream_rate,
                     OUTPUT_RATE,
                     dev.get("name", "default") if dev else "default",
                 )
             except Exception:
-                logger.info("Speaker open (rate=%d, device=default)", OUTPUT_RATE)
+                logger.info("Speaker open (device_rate=%d, api_rate=%d, device=default)", output_stream_rate, OUTPUT_RATE)
             try:
                 while not stop_event.is_set():
                     raw, desired_rate = await speaker_queue.get()
                     if not raw:
                         continue
-
-                    # Live API outputs PCM16 @ 24kHz by default.
-                    # If model changes output rate, recreate stream.
-                    if desired_rate != current_rate:
-                        output_stream = _restart_output_stream(
-                            output_stream,
-                            desired_rate,
-                            device_idx=output_device,
-                            extra_kwargs=output_stream_kwargs,
-                        )
-                        current_rate = desired_rate
 
                     if MIC_BLOCK_WHILE_ASSISTANT:
                         # Block mic while assistant audio is playing, plus a short cooldown.
@@ -950,6 +1003,8 @@ async def _run_session(client: genai.Client) -> None:
                                 mic_queue.get_nowait()
 
                     pcm = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+                    if desired_rate != output_stream_rate:
+                        pcm = _resample_float32(pcm, desired_rate, output_stream_rate)
                     await asyncio.to_thread(output_stream.write, pcm.reshape(-1, 1))
             finally:
                 try:
@@ -963,18 +1018,17 @@ async def _run_session(client: genai.Client) -> None:
         player = asyncio.create_task(play_audio())
         tasks = {listener, sender, receiver, player}
         try:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
-            if not done:
-                done = pending
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
             for task in done:
                 if task.cancelled():
                     continue
                 exc = task.exception()
                 if exc is None:
-                    continue
-                if _is_expected_disconnect(exc):
-                    logger.info("Live socket closed: %s", exc)
+                    logger.info("Live stream task ended; restarting session.")
                     return
+                if _is_expected_disconnect(exc):
+                    logger.info("Live socket closed; restarting session: %s", exc)
+                    continue
                 raise exc
         finally:
             stop_event.set()
